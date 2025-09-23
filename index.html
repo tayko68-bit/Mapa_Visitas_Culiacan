@@ -260,9 +260,12 @@
     "Carpinterías/madera": [337110, 337120, 337910, 321910, 321920]
   };
 
+  // Colores fijos para vendedores específicos
   const FIXED_VENDOR_COLORS = {
-    "wendy": "violet",
-    "alfredo": "green"
+    "d. pancho martinez": "red",
+    "freddy martinez": "orange", // Se verá marrón en la leyenda
+    "juan millan": "green",
+    "pedro aguirre": "blue"
   };
     
   /************************ AUTO-UPDATE ************************/
@@ -367,22 +370,41 @@
     // Ordenar alfabéticamente
     vendorList.push(...Array.from(vendorSet).sort());
 
-    // Asignar colores
-    const palette = ["red","orange","yellow","blue","grey","black","green","violet","pink","cadetblue"];
-    let colorIndex = 0;
+    // Asignar colores con morado como primera opción para nuevos vendedores
+    const paletteNuevos = ["violet", "pink", "cadetblue", "yellow", "grey", "black"]; // Morado primero
+    const coloresUsados = new Set(Object.values(FIXED_VENDOR_COLORS));
     vendorColorMap = {};
 
     vendorList.forEach(nombreV => {
       if (FIXED_VENDOR_COLORS[nombreV]) {
+        // Asignar color fijo predefinido
         vendorColorMap[nombreV] = FIXED_VENDOR_COLORS[nombreV];
       } else {
-        let color = palette[colorIndex % palette.length];
-        while (Object.values(vendorColorMap).includes(color) && colorIndex < palette.length * 2) {
-          colorIndex++;
-          color = palette[colorIndex % palette.length];
+        // Asignar color secuencial para nuevos vendedores
+        let colorAsignado = null;
+        
+        // Buscar el primer color disponible de la paleta de nuevos
+        for (const color of paletteNuevos) {
+          if (!coloresUsados.has(color)) {
+            colorAsignado = color;
+            coloresUsados.add(color);
+            break;
+          }
         }
-        vendorColorMap[nombreV] = color;
-        colorIndex++;
+        
+        // Si todos los colores están usados, usar el siguiente disponible de cualquier paleta
+        if (!colorAsignado) {
+          const todosColores = ["red","orange","yellow","blue","grey","black","green","violet","pink","cadetblue"];
+          for (const color of todosColores) {
+            if (!coloresUsados.has(color)) {
+              colorAsignado = color;
+              coloresUsados.add(color);
+              break;
+            }
+          }
+        }
+        
+        vendorColorMap[nombreV] = colorAsignado || "grey"; // Por defecto gris si todo está ocupado
       }
     });
 
@@ -749,7 +771,7 @@
   function getColorHex(colorName) {
     const colors = {
       'red': '#FF4444',
-      'orange': '#FF8C00',
+      'orange': '#D2691E', // Tono marrón en lugar de naranja puro
       'yellow': '#FFD700',
       'blue': '#2196F3',
       'grey': '#757575',
