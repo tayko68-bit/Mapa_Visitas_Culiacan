@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa: Vendedores + Prospectos (DENUE)</title>
+  <title>Mapa: Vendedores + Prospectos (DENUE) - Culiacán</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <!-- Headers anti-cache -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -241,7 +241,8 @@
 
   <script>
   /************************ CONFIG ************************/
-  const URL_VENDEDORES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTmRi-dPt7wPBvbcg1UMLZMU8fV_dAcR9BlVIS2leud01HWVnvKg5aq6RP0YsC1r_3yOFzHQsMv-g_F/pub?output=csv";
+  // URL actualizada para Culiacán
+  const URL_VENDEDORES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQvPfJWEmigh61MLfqMUfZAjd3z3tlkUDBGZl7U0dO8qxEHDFHFGIao_Y8bO98j2z8K6_g8-S9uMkVe/pub?output=csv";
   const URL_DENUE_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSK87ymKaIGki4st8Fu8NIruKQEuKFR_rrfueefbJ3QFLVAjIGt5E6tBy2v1nhGBh9npPKZp6cRQDc/pub?output=csv";
 
   const GIROS = {
@@ -271,7 +272,7 @@
   let vendedorSeleccionado = null; // Para filtrar por vendedor
 
   window.addEventListener('load', () => {
-    console.log("🚀 Aplicación iniciada", new Date().toLocaleTimeString());
+    console.log("🚀 Aplicación iniciada - Culiacán", new Date().toLocaleTimeString());
     
     // Mostrar en consola cuando se detectan cambios
     const originalLog = console.log;
@@ -324,7 +325,8 @@
   }
 
   /************************ MAPA Y CAPAS ************************/
-  const map = L.map('map').setView([23.2329, -106.4062], 12);
+  // Coordenadas actualizadas para Culiacán
+  const map = L.map('map').setView([24.8049, -107.3939], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
