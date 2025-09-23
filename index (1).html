@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa: Vendedores + Prospectos (DENUE)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Headers anti-cache -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    html,body,#map { height: 100%; margin:0; padding:0; }
+    #map { height: 100vh; }
+
+    /* Panel superior derecho (plegable) */
+    .panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      font-family: sans-serif;
+      z-index: 1000;
+      width: 240px;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .panel-header {
+      padding: 6px 10px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-content {
+      padding: 8px 10px;
+    }
+
+    .panel.collapsed {
+      max-height: 36px;
+    }
+
+    .panel.expanded {
+      max-height: 500px;
+    }
+
+    .panel select, .panel button {
+      width: 14vw;
+      max-width: 280px;
+      min-width: 200px;
+      margin-top:6px;
+      padding:6px;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+
+    /* Leyenda mejorada */
+    .legend {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+      padding: 12px 15px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1000;
+      max-height: 40vh;
+      overflow-y: auto;
+      min-width: 220px;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .legend-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e0e0e0;
+      color: #2c3e50;
+    }
+
+    /* Toggle de vista */
+    .vista-toggle {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      padding: 8px;
+      background: #f0f0f0;
+      border-radius: 6px;
+      gap: 10px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 24px;
+      background: #ccc;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .toggle-switch.active {
+      background: #4CAF50;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: white;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(26px);
+    }
+
+    .legend-item { 
+      display: flex; 
+      align-items: center; 
+      margin-bottom: 8px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .legend-item:hover {
+      background-color: rgba(0,0,0,0.04);
+    }
+
+    .legend-item.hidden {
+      opacity: 0.3;
+      filter: grayscale(1);
+    }
+
+    .legend-color {
+      width: 18px; 
+      height: 18px; 
+      margin-right: 10px; 
+      border-radius: 50%; 
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      flex: 0 0 18px;
+    }
+
+    .legend-star {
+      width: 22px; 
+      height: 22px; 
+      margin-right: 10px; 
+      display: inline-block; 
+      flex: 0 0 22px;
+    }
+
+    .legend-counters {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      font-size: 11px;
+    }
+
+    .counter-today {
+      background: #4CAF50;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .counter-today:hover {
+      transform: scale(1.1);
+      box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+    }
+
+    .counter-month {
+      background: #2196F3;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .counter-month:hover {
+      transform: scale(1.1);
+      box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+    }
+
+    .legend-separator {
+      height: 1px;
+      background: #e0e0e0;
+      margin: 10px 0;
+    }
+
+    /* Marcador destacado para hoy */
+    .marker-today {
+      filter: drop-shadow(0 0 4px rgba(76, 175, 80, 0.6));
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Panel plegable -->
+  <div class="panel" id="panel">
+    <div class="panel-header" id="panelToggle">
+      🔍 Buscar prospectos <span id="arrow">▶</span>
+    </div>
+    <div class="panel-content">
+      <label for="giroSelect"><strong>Giro</strong></label>
+      <select id="giroSelect">
+        <option value="">-- Selecciona un giro --</option>
+      </select>
+      <button id="buscarBtn">Buscar</button>
+      <button id="limpiarBtn">Limpiar</button>
+      <div id="status" style="margin-top:6px; font-size:12px; color:#333;"></div>
+    </div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+  /************************ CONFIG ************************/
+  const URL_VENDEDORES_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTmRi-dPt7wPBvbcg1UMLZMU8fV_dAcR9BlVIS2leud01HWVnvKg5aq6RP0YsC1r_3yOFzHQsMv-g_F/pub?output=csv";
+  const URL_DENUE_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSK87ymKaIGki4st8Fu8NIruKQEuKFR_rrfueefbJ3QFLVAjIGt5E6tBy2v1nhGBh9npPKZp6cRQDc/pub?output=csv";
+
+  const GIROS = {
+    "Ferreterías": [467111, 467112, 467113],
+    "Automotriz y refacciones": [468211, 468212, 811191, 811192],
+    "Eléctricas e instalaciones": [238221, 467121],
+    "Aluminio y metalmecánica": [238322, 332322, 332710, 332991],
+    "Rotulación y construcción ligera": [323111, 238390],
+    "Agrícolas y maquinaria": [333111, 333112, 811310, 461110, 461120],
+    "Talleres mecánicos": [811191, 811192],
+    "Refacciones automotrices": [468211, 468212],
+    "Alumineros / carp. aluminio": [332322],
+    "Instaladores de rótulos": [323111],
+    "Suministros industriales": [332991, 332710]
+  };
+
+  const FIXED_VENDOR_COLORS = {
+    "wendy": "violet",
+    "alfredo": "green"
+  };
+    
+  /************************ AUTO-UPDATE ************************/
+  let lastVendorHash = null;
+  let pollingInterval = null;
+  let vistaActual = 'mes'; // 'mes' o 'hoy'
+  let vendedorSeleccionado = null; // Para filtrar por vendedor
+
+  /************************ DEBUG MODE ************************/
+  window.addEventListener('load', () => {
+    console.log("🚀 Aplicación iniciada", new Date().toLocaleTimeString());
+    
+    // Mostrar en consola cuando se detectan cambios
+    const originalLog = console.log;
+    console.log = function(...args) {
+      if (args[0] && args[0].includes('CAMBIO DETECTADO')) {
+        originalLog('%c' + args[0], 'background: #4CAF50; color: white; padding: 5px;', ...args.slice(1));
+      } else {
+        originalLog.apply(console, args);
+      }
+    };
+  });
+    
+  /************************ UTILIDADES ************************/
+  function normalizarTexto(txt) {
+    if (!txt && txt !== 0) return "";
+    return String(txt)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase()
+      .trim();
+  }
+
+  function crearIconoEstrella() {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24">
+      <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9"
+        fill="#FFD700" stroke="#E6B800" stroke-width="0.7"/>
+    </svg>`;
+    return L.divIcon({
+      html: `<div style="width:22px;height:22px;">${svg}</div>`,
+      className: '',
+      iconSize: [22,22],
+      iconAnchor: [11,22],
+      popupAnchor: [0,-18]
+    });
+  }
+
+  function crearIconoColor(colorName, esHoy = false) {
+    const iconUrl = `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${colorName}.png`;
+    const icon = L.icon({
+      iconUrl: iconUrl,
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: esHoy ? [30, 49] : [25, 41], // Un poco más grande si es de hoy
+      iconAnchor: esHoy ? [15, 49] : [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41],
+      className: esHoy ? 'marker-today' : ''
+    });
+    return icon;
+  }
+
+  /************************ MAPA Y CAPAS ************************/
+  const map = L.map('map').setView([23.2329, -106.4062], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const layerVendedores = L.layerGroup().addTo(map);
+  const layerProspectos = L.layerGroup().addTo(map);
+
+  let denueData = [];
+  let vendedoresData = [];
+  let vendorColorMap = {};
+  let todosLosMarcadores = []; // Guardar referencia a todos los marcadores
+
+  function valorFila(row, keys) {
+    for (const k of keys) {
+      if (row[k] !== undefined) return row[k];
+    }
+    return "";
+  }
+
+  /************************ CARGA Y RENDER VENDEDORES (MEJORADO) ************************/
+  function renderVendedores(rows) {
+    layerVendedores.clearLayers();
+    todosLosMarcadores = [];
+    const vendorSet = new Set();
+    const vendorList = [];
+    
+    // Fecha de hoy para comparación
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    // Recolectar todos los vendedores únicos
+    rows.forEach(r => {
+      const nombreVRaw = valorFila(r, ["NOMBRE VENDEDOR","nombre vendedor","NOMBRE_VENDEDOR","nom_vendedor"]) || "Sin vendedor";
+      const nombreV = normalizarTexto(nombreVRaw);
+      vendorSet.add(nombreV);
+    });
+
+    // Ordenar alfabéticamente
+    vendorList.push(...Array.from(vendorSet).sort());
+
+    // Asignar colores
+    const palette = ["red","orange","yellow","blue","grey","black","green","violet","pink","cadetblue"];
+    let colorIndex = 0;
+    vendorColorMap = {};
+
+    vendorList.forEach(nombreV => {
+      if (FIXED_VENDOR_COLORS[nombreV]) {
+        vendorColorMap[nombreV] = FIXED_VENDOR_COLORS[nombreV];
+      } else {
+        let color = palette[colorIndex % palette.length];
+        while (Object.values(vendorColorMap).includes(color) && colorIndex < palette.length * 2) {
+          colorIndex++;
+          color = palette[colorIndex % palette.length];
+        }
+        vendorColorMap[nombreV] = color;
+        colorIndex++;
+      }
+    });
+
+    // Renderizar marcadores
+    rows.forEach(r => {
+      const nombreVRaw = valorFila(r, ["NOMBRE VENDEDOR","nombre vendedor","NOMBRE_VENDEDOR","nom_vendedor"]) || "Sin vendedor";
+      const nombreV = normalizarTexto(nombreVRaw);
+      const coordStr = valorFila(r, ["COORDENADAS","coordenadas","Coordenadas"]) || "";
+      let lat=null, lon=null;
+      if(coordStr.includes(",")){
+        const p = coordStr.split(",").map(s=>s.trim());
+        lat=parseFloat(p[0]); lon=parseFloat(p[1]);
+      } else {
+        lat=parseFloat(valorFila(r, ["latitud","LATITUD","Latitud"]));
+        lon=parseFloat(valorFila(r, ["longitud","LONGITUD","Longitud"]));
+      }
+      if(isNaN(lat)||isNaN(lon)) return;
+
+      // Verificar si es de hoy
+      const fechaRaw = valorFila(r, ["FECHA","fecha"]) || "";
+      let esDeHoy = false;
+      let fecha = null;
+      
+      const match = fechaRaw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+      if (match) {
+        const [, dia, mes, anio, hora, min, seg] = match;
+        fecha = new Date(anio, mes - 1, dia, 0, 0, 0);
+        esDeHoy = fecha.getTime() === hoy.getTime();
+      }
+
+      const colorName = vendorColorMap[nombreV];
+      const marker = L.marker([lat, lon], { 
+        icon: crearIconoColor(colorName, esDeHoy),
+        zIndexOffset: esDeHoy ? 1000 : 0
+      });
+      
+      const cliente = valorFila(r, ["NOMBRE CLIENTE","NOMBRE_CLIENTE","nombre cliente","nom_estab"]) || "";
+      const giro = valorFila(r, ["GIRO","giro"]) || "";
+      const motivo = valorFila(r, ["MOTIVO","motivo"]) || "";
+      const obs = valorFila(r, ["OBSERVACIONES","observaciones"]) || "";
+
+      const popupContent = `
+        ${esDeHoy ? '<div style="background:#4CAF50;color:white;padding:4px 8px;margin:-10px -10px 8px -10px;font-weight:bold;">✨ VISITA DE HOY</div>' : ''}
+        <b>Vendedor:</b> ${nombreVRaw}<br>
+        <b>Fecha:</b> ${fechaRaw}<br>
+        <b>Cliente:</b> ${cliente}<br>
+        <b>Giro:</b> ${giro}<br>
+        <b>Motivo:</b> ${motivo}<br>
+        <b>Obs:</b> ${obs}
+      `;
+
+      marker.bindPopup(popupContent);
+      
+      // Guardar datos adicionales en el marcador
+      marker.esDeHoy = esDeHoy;
+      marker.vendedor = nombreV;
+      
+      todosLosMarcadores.push(marker);
+      marker.addTo(layerVendedores);
+    });
+
+    actualizarLeyenda();
+    aplicarFiltroVista();
+  }
+
+  function aplicarFiltroVista() {
+    todosLosMarcadores.forEach(marker => {
+      if (vistaActual === 'hoy' && !marker.esDeHoy) {
+        layerVendedores.removeLayer(marker);
+      } else if (vendedorSeleccionado && marker.vendedor !== vendedorSeleccionado) {
+        layerVendedores.removeLayer(marker);
+      } else {
+        if (!layerVendedores.hasLayer(marker)) {
+          marker.addTo(layerVendedores);
+        }
+      }
+    });
+  }
+
+  function cargarVendedores() {
+    const status = document.getElementById('status');
+    status.textContent = "Cargando vendedores...";
+
+    // Cache busting mejorado
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(7);
+    let urlConCacheBuster = URL_VENDEDORES_CSV;
+    
+    // Agregar múltiples parámetros para evitar cache
+    if (urlConCacheBuster.includes('?')) {
+      urlConCacheBuster += `&t=${timestamp}&r=${random}&nocache=true`;
+    } else {
+      urlConCacheBuster += `?t=${timestamp}&r=${random}&nocache=true`;
+    }
+
+    Papa.parse(urlConCacheBuster, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete(results) {
+        vendedoresData = results.data;
+        renderVendedores(vendedoresData);
+        actualizarLeyenda();
+        status.textContent = `Vendedores cargados: ${vendedoresData.length}`;
+        setTimeout(() => { status.textContent = ""; }, 3000);
+        console.log("✅ Vendedores cargados:", vendedoresData.length, new Date().toLocaleTimeString());
+      },
+      error(err) { 
+        console.error("Error cargando vendedores:", err); 
+        status.textContent = "Error cargando vendedores";
+      }
+    });
+  }
+
+  /************************ CARGA DENUE ************************/
+  function cargarDENUE(){
+    document.getElementById('status').textContent = "Cargando base DENUE...";
+    Papa.parse(URL_DENUE_CSV, {
+      download:true,
+      header:true,
+      skipEmptyLines:true,
+      complete(results){
+        denueData = results.data.map(r=>{
+          return {
+            nom_estab: r.nom_estab || r.NOMBRE_ESTAB || "",
+            raz_social: r.raz_social || "",
+            codigo_act: r.codigo_act || "",
+            nombre_act: r.nombre_act || "",
+            latitud: parseFloat(r.latitud),
+            longitud: parseFloat(r.longitud),
+            telefono: r.telefono || "",
+            direccion: `${r.tipo_vial||""} ${r.nom_vial||""} ${r.numero_ext||""} ${r.letra_ext||""}`.trim()
+          };
+        }).filter(d=>!isNaN(d.latitud)&&!isNaN(d.longitud));
+        document.getElementById('status').textContent = `DENUE cargada: ${denueData.length} registros`;
+      },
+      error(err){ console.error(err); document.getElementById('status').textContent="Error cargando DENUE"; }
+    });
+  }
+
+  /************************ LLENAR GIROS ************************/
+  const giroSelect = document.getElementById('giroSelect');
+  Object.keys(GIROS).forEach(nombre=>{
+    const opt = document.createElement('option');
+    opt.value=nombre; opt.textContent=nombre;
+    giroSelect.appendChild(opt);
+  });
+
+  /************************ BUSCAR PROSPECTOS ************************/
+  function buscarProspectos(){
+    layerProspectos.clearLayers();
+    const giroNombre = giroSelect.value;
+    if(!giroNombre){
+      document.getElementById('status').textContent = "Selecciona un giro primero";
+      return;
+    }
+    const codigos = GIROS[giroNombre].map(c=>String(c));
+
+    const resultados = denueData.filter(d=>{
+      const code = String(d.codigo_act||"").replace(/\D/g,'');
+      return codigos.includes(code);
+    });
+
+    const iconEstrella = crearIconoEstrella();
+    resultados.forEach(r=>{
+      const mk = L.marker([r.latitud, r.longitud],{icon: iconEstrella})
+        .bindPopup(
+          `<b>${r.nom_estab||'Sin nombre'}</b><br>
+           <b>Razón social:</b> ${r.raz_social||''}<br>
+           <b>Dirección:</b> ${r.direccion||''}<br>
+           <b>Teléfono:</b> ${r.telefono||''}<br>
+           <b>SCIAN:</b> ${r.codigo_act||''}`
+        );
+      mk.addTo(layerProspectos);
+    });
+
+    document.getElementById('status').textContent = `${resultados.length} prospectos encontrados`;
+    actualizarLeyenda();
+  }
+
+  function limpiarProspectos(){
+    layerProspectos.clearLayers();
+    document.getElementById('status').textContent="Prospectos limpiados";
+    actualizarLeyenda();
+  }
+
+  /************************ LEYENDA MEJORADA CON TOGGLE ************************/
+  function actualizarLeyenda() {
+    const legend = document.getElementById('legend');
+    legend.innerHTML = "";
+
+    // Título de la leyenda
+    const title = document.createElement('div');
+    title.className = 'legend-title';
+    title.textContent = '📍 Vendedores';
+    legend.appendChild(title);
+
+    // Toggle de vista
+    const toggleContainer = document.createElement('div');
+    toggleContainer.className = 'vista-toggle';
+    
+    const toggleLabel = document.createElement('span');
+    toggleLabel.textContent = vistaActual === 'hoy' ? '🌅 Solo hoy' : '📅 Todo el mes';
+    toggleLabel.style.fontSize = '12px';
+    toggleLabel.style.fontWeight = '500';
+    
+    const toggleSwitch = document.createElement('div');
+    toggleSwitch.className = 'toggle-switch' + (vistaActual === 'hoy' ? ' active' : '');
+    toggleSwitch.onclick = () => {
+      vistaActual = vistaActual === 'mes' ? 'hoy' : 'mes';
+      vendedorSeleccionado = null; // Reset selección de vendedor
+      actualizarLeyenda();
+      aplicarFiltroVista();
+      
+      const status = document.getElementById('status');
+      status.textContent = vistaActual === 'hoy' ? '🌅 Mostrando solo visitas de hoy' : '📅 Mostrando todas las visitas del mes';
+      setTimeout(() => { status.textContent = ""; }, 2000);
+    };
+    
+    toggleContainer.appendChild(toggleLabel);
+    toggleContainer.appendChild(toggleSwitch);
+    legend.appendChild(toggleContainer);
+
+    if (!vendedoresData || vendedoresData.length === 0) {
+      legend.innerHTML += "<div class='legend-item' style='color:#999;'>Cargando vendedores...</div>";
+      return;
+    }
+
+    const contadores = {};
+
+    vendedoresData.forEach(r => {
+      const nombreVRaw = valorFila(r, ["NOMBRE VENDEDOR","nombre vendedor","NOMBRE_VENDEDOR","nom_vendedor"]) || "Sin vendedor";
+      const nombreV = normalizarTexto(nombreVRaw);
+
+      if (!contadores[nombreV]) {
+        contadores[nombreV] = { hoy: 0, mes: 0 };
+      }
+
+      const fechaRaw = valorFila(r, ["FECHA","fecha"]) || "";
+      let fecha = null;
+
+      const match = fechaRaw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+      if (match) {
+        const [, dia, mes, anio, hora, min, seg] = match;
+        fecha = new Date(anio, mes - 1, dia, hora, min, seg);
+      } else {
+        fecha = new Date(fechaRaw.trim());
+      }
+
+      if (isNaN(fecha.getTime())) return;
+
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0);
+      const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0, 23, 59, 59);
+
+      const fechaInicioDia = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), 0, 0, 0);
+      const esHoy = fechaInicioDia.getTime() === hoy.getTime();
+
+      if (fecha >= inicioMes && fecha <= finMes) {
+        contadores[nombreV].mes++;
+        if (esHoy) {
+          contadores[nombreV].hoy++;
+        }
+      }
+    });
+
+    const sortedVendors = Object.keys(vendorColorMap).sort();
+
+    sortedVendors.forEach(nombreV => {
+      let nombreOriginal = nombreV.charAt(0).toUpperCase() + nombreV.slice(1);
+      for (const r of vendedoresData) {
+        const raw = valorFila(r, ["NOMBRE VENDEDOR","nombre vendedor","NOMBRE_VENDEDOR","nom_vendedor"]) || "";
+        if (normalizarTexto(raw) === nombreV) {
+          nombreOriginal = raw;
+          break;
+        }
+      }
+
+      const contador = contadores[nombreV] || { hoy: 0, mes: 0 };
+      
+      // Ocultar vendedores sin visitas en vista "hoy"
+      if (vistaActual === 'hoy' && contador.hoy === 0) {
+        return; // No mostrar este vendedor
+      }
+      
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      if (vendedorSeleccionado && nombreV !== vendedorSeleccionado) {
+        div.className += ' hidden';
+      }
+      
+      // Hacer clickeable toda la fila
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        if (vendedorSeleccionado === nombreV) {
+          vendedorSeleccionado = null;
+        } else {
+          vendedorSeleccionado = nombreV;
+        }
+        actualizarLeyenda();
+        aplicarFiltroVista();
+      };
+
+      const box = document.createElement('div');
+      box.className = 'legend-color';
+      box.style.backgroundColor = getColorHex(vendorColorMap[nombreV]);
+      div.appendChild(box);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = nombreOriginal;
+      nameSpan.style.flex = '1';
+      div.appendChild(nameSpan);
+
+      const countersDiv = document.createElement('div');
+      countersDiv.className = 'legend-counters';
+      
+      if (contador.hoy > 0) {
+        const todaySpan = document.createElement('span');
+        todaySpan.className = 'counter-today';
+        todaySpan.textContent = contador.hoy;
+        todaySpan.title = 'Visitas hoy';
+        countersDiv.appendChild(todaySpan);
+      }
+      
+      const monthSpan = document.createElement('span');
+      monthSpan.className = 'counter-month';
+      monthSpan.textContent = contador.mes;
+      monthSpan.title = 'Visitas este mes';
+      countersDiv.appendChild(monthSpan);
+      
+      div.appendChild(countersDiv);
+      legend.appendChild(div);
+    });
+
+    // Separador
+    const separator = document.createElement('div');
+    separator.className = 'legend-separator';
+    legend.appendChild(separator);
+
+    // Prospectos
+    const p = document.createElement('div');
+    p.className = 'legend-item';
+
+    const star = document.createElement('div');
+    star.className = 'legend-star';
+    star.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24">
+        <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9"
+          fill="#FFD700" stroke="#E6B800" stroke-width="0.7"/>
+      </svg>
+    `;
+    p.appendChild(star);
+
+    const prospectText = document.createElement('span');
+    prospectText.textContent = " Prospectos (DENUE)";
+    p.appendChild(prospectText);
+    
+    legend.appendChild(p);
+  }
+
+  // Función auxiliar para obtener color hex
+  function getColorHex(colorName) {
+    const colors = {
+      'red': '#FF4444',
+      'orange': '#FF8C00',
+      'yellow': '#FFD700',
+      'blue': '#2196F3',
+      'grey': '#757575',
+      'black': '#333333',
+      'green': '#4CAF50',
+      'violet': '#9C27B0',
+      'pink': '#E91E63',
+      'cadetblue': '#5F9EA0'
+    };
+    return colors[colorName] || '#666666';
+  }
+
+  /************************ AUTO-UPDATE MEJORADO ************************/
+  function verificarActualizaciones() {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+
+    pollingInterval = setInterval(() => {
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(7);
+      let urlConCacheBuster = URL_VENDEDORES_CSV;
+      
+      if (urlConCacheBuster.includes('?')) {
+        urlConCacheBuster += `&check=${timestamp}&rand=${random}`;
+      } else {
+        urlConCacheBuster += `?check=${timestamp}&rand=${random}`;
+      }
+
+      console.log("🔍 Verificando cambios...", new Date().toLocaleTimeString());
+
+      Papa.parse(urlConCacheBuster, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          if (!results.data || results.data.length === 0) {
+            console.warn("⚠️ No se recibieron datos");
+            return;
+          }
+
+          const contenidoCompleto = JSON.stringify(results.data);
+          const nuevoHash = generarHashSimple(contenidoCompleto);
+
+          if (lastVendorHash === null) {
+            lastVendorHash = nuevoHash;
+            console.log("🏁 Hash inicial:", lastVendorHash);
+          } else if (lastVendorHash !== nuevoHash) {
+            console.log("📊 ¡CAMBIO DETECTADO!", {
+              registros: results.data.length,
+              hora: new Date().toLocaleTimeString()
+            });
+
+            lastVendorHash = nuevoHash;
+            vendedoresData = results.data;
+            renderVendedores(vendedoresData);
+            actualizarLeyenda();
+            
+            const status = document.getElementById('status');
+            status.textContent = "🔄 Datos actualizados automáticamente";
+            mostrarNotificacion("✅ Mapa actualizado con nuevos datos");
+            setTimeout(() => { status.textContent = ""; }, 3000);
+          } else {
+            console.log("✓ Sin cambios");
+          }
+        },
+        error: function(err) {
+          console.warn("⚠️ Error en verificación:", err.message);
+        }
+      });
+    }, 30000); // 30 segundos
+  }
+
+  // Hash simple pero efectivo
+  function generarHashSimple(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return str.length + "_" + Math.abs(hash).toString(36);
+  }
+
+  // Función de notificación visual
+  function mostrarNotificacion(mensaje) {
+    const toast = document.createElement('div');
+    toast.textContent = mensaje;
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.right = '20px';
+    toast.style.background = '#28a745';
+    toast.style.color = 'white';
+    toast.style.padding = '10px 15px';
+    toast.style.borderRadius = '6px';
+    toast.style.zIndex = '2000';
+    toast.style.fontSize = '14px';
+    toast.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // Reactivar polling si la pestaña se reactiva
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && pollingInterval) {
+      console.log("🔄 Pestaña reactivada. Reiniciando polling...");
+      clearInterval(pollingInterval);
+      verificarActualizaciones();
+    }
+  });
+
+  /************************ EVENTOS ************************/
+  document.getElementById('buscarBtn').addEventListener('click', buscarProspectos);
+  document.getElementById('limpiarBtn').addEventListener('click', limpiarProspectos);
+
+  // Toggle panel plegable
+  const panel = document.getElementById('panel');
+  const toggle = document.getElementById('panelToggle');
+  const arrow = document.getElementById('arrow');
+  panel.classList.add('collapsed');
+  toggle.addEventListener('click', () => {
+    if (panel.classList.contains('collapsed')) {
+      panel.classList.remove('collapsed');
+      panel.classList.add('expanded');
+      arrow.textContent = "▼";
+    } else {
+      panel.classList.remove('expanded');
+      panel.classList.add('collapsed');
+      arrow.textContent = "▶";
+    }
+  });
+
+  /************************ BOTÓN DEBUG ************************/
+  // Agregar botón de debug después de que se cargue el DOM
+  window.addEventListener('DOMContentLoaded', () => {
+    const debugBtn = document.createElement('button');
+    debugBtn.textContent = '🐛 Debug Cache';
+    debugBtn.style.cssText = 'width: 100%; margin-top: 6px; background: #ff5722; color: white; padding: 6px; font-size: 14px;';
+    debugBtn.onclick = () => {
+      console.log('Estado actual:', {
+        vendedores: vendedoresData.length,
+        lastHash: lastVendorHash,
+        vista: vistaActual,
+        vendedorSeleccionado: vendedorSeleccionado,
+        hora: new Date().toLocaleTimeString()
+      });
+      
+      // Forzar recarga con nuevo hash
+      lastVendorHash = null;
+      cargarVendedores();
+    };
+    document.querySelector('.panel-content').appendChild(debugBtn);
+  });
+
+  /************************ INICIO ************************/
+  cargarVendedores();
+  cargarDENUE();
+
+  // Iniciar verificación automática cada 30 segundos
+  verificarActualizaciones();
+  </script>
+</body>
+</html>
