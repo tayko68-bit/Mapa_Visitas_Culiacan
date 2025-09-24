@@ -349,7 +349,7 @@
     return "";
   }
 
-  /************************ CARGA Y RENDER VENDEDORES (MEJORADO) ************************/
+  /************************ CARGA Y RENDER VENDEDORES (CORREGIDO) ************************/
   function renderVendedores(rows) {
     layerVendedores.clearLayers();
     todosLosMarcadores = [];
@@ -407,7 +407,9 @@
     rows.forEach(r => {
       const nombreVRaw = valorFila(r, ["NOMBRE VENDEDOR","nombre vendedor","NOMBRE_VENDEDOR","nom_vendedor"]) || "Sin vendedor";
       const nombreV = normalizarTexto(nombreVRaw);
-      const coordStr = valorFila(r, ["COORDENADAS","coordenadas","Coordenadas"]) || "";
+      
+      // 🔧 CORREGIDO: Buscar coordenadas con el nuevo encabezado
+      const coordStr = valorFila(r, ["GPS Ubicacion","COORDENADAS","coordenadas","Coordenadas"]) || "";
       let lat=null, lon=null;
       if(coordStr.includes(",")){
         const p = coordStr.split(",").map(s=>s.trim());
@@ -418,11 +420,12 @@
       }
       if(isNaN(lat)||isNaN(lon)) return;
 
-      // Verificar si es de hoy
-      const fechaRaw = valorFila(r, ["FECHA","fecha"]) || "";
+      // 🔧 CORREGIDO: Buscar fecha con el nuevo encabezado
+      const fechaRaw = valorFila(r, ["Fecha y Hora","FECHA","fecha"]) || "";
       let esDeHoy = false;
       let fecha = null;
       
+      // 🔧 MEJORADO: Regex para formato mexicano dd/mm/yyyy
       const match = fechaRaw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
       if (match) {
         const [, dia, mes, anio, hora, min, seg] = match;
@@ -586,7 +589,7 @@
     actualizarLeyenda();
   }
 
-  /************************ LEYENDA MEJORADA CON TOGGLE ************************/
+  /************************ LEYENDA MEJORADA CON TOGGLE (CORREGIDA) ************************/
   function actualizarLeyenda() {
     const legend = document.getElementById('legend');
     legend.innerHTML = "";
@@ -638,9 +641,11 @@
         contadores[nombreV] = { hoy: 0, mes: 0 };
       }
 
-      const fechaRaw = valorFila(r, ["FECHA","fecha"]) || "";
+      // 🔧 CORREGIDO: Buscar fecha con nuevo encabezado
+      const fechaRaw = valorFila(r, ["Fecha y Hora","FECHA","fecha"]) || "";
       let fecha = null;
 
+      // 🔧 MEJORADO: Regex para formato mexicano
       const match = fechaRaw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
       if (match) {
         const [, dia, mes, anio, hora, min, seg] = match;
