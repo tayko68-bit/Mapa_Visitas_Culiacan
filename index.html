@@ -563,3 +563,352 @@
             nom_estab: r.nom_estab || r.NOMBRE_ESTAB || "",
             raz_social: r.raz_social || "",
             codigo_act: r.codigo_act || "",
+            nombre_act: r.nombre_act || "",
+            latitud: parseFloat(r.latitud),
+            longitud: parseFloat(r.longitud),
+            telefono: r.telefono || "",
+            direccion: `${r.tipo_vial||""} ${r.nom_vial||""} ${r.numero_ext||""} ${r.letra_ext||""}`.trim()
+          };
+        }).filter(d=>!isNaN(d.latitud)&&!isNaN(d.longitud));
+        document.getElementById('status').textContent = `DENUE cargada: ${denueData.length} registros`;
+      },
+      error(err){ console.error(err); document.getElementById('status').textContent="Error cargando DENUE"; }
+    });
+  }
+
+  /************************ LLENAR GIROS ************************/
+  const giroSelect = document.getElementById('giroSelect');
+  Object.keys(GIROS).forEach(nombre=>{
+    const opt = document.createElement('option');
+    opt.value=nombre; opt.textContent=nombre;
+    giroSelect.appendChild(opt);
+  });
+
+  /************************ BUSCAR PROSPECTOS ************************/
+  function buscarProspectos(){
+    layerProspectos.clearLayers();
+    const giroNombre = giroSelect.value;
+    if(!giroNombre){
+      document.getElementById('status').textContent = "Selecciona un giro primero";
+      return;
+    }
+    const codigos = GIROS[giroNombre].map(c=>String(c));
+
+    const resultados = denueData.filter(d=>{
+      const code = String(d.codigo_act||"").replace(/\D/g,'');
+      return codigos.includes(code);
+    });
+
+    const iconEstrella = crearIconoEstrella();
+    resultados.forEach(r=>{
+      const mk = L.marker([r.latitud, r.longitud],{icon: iconEstrella})
+        .bindPopup(
+          `<b>${r.nom_estab||'Sin nombre'}</b><br>
+           <b>Razón social:</b> ${r.raz_social||''}<br>
+           <b>Dirección:</b> ${r.direccion||''}<br>
+           <b>Teléfono:</b> ${r.telefono||''}<br>
+           <b>SCIAN:</b> ${r.codigo_act||''}`
+        );
+      mk.addTo(layerProspectos);
+    });
+
+    document.getElementById('status').textContent = `${resultados.length} prospectos encontrados`;
+    actualizarLeyenda();
+  }
+
+  function limpiarProspectos(){
+    layerProspectos.clearLayers();
+    document.getElementById('status').textContent="Prospectos limpiados";
+    actualizarLeyenda();
+  }
+
+  /************************ LEYENDA MEJORADA CON FILTRO DE FECHA ************************/
+  function actualizarLeyenda() {
+    const legend = document.getElementById('legend');
+    const valorFiltroActual = document.getElementById('filtroFechaSelect')?.value || 'mes';
+    legend.innerHTML = "";
+
+    const title = document.createElement('div');
+    title.className = 'legend-title';
+    title.textContent = '📍 Vendedores';
+    legend.appendChild(title);
+    
+    // <-- NUEVO: Contenedor para el nuevo filtro de fecha -->
+    const filtroContainer = document.createElement('div');
+    filtroContainer.className = 'filtro-fecha-container';
+    filtroContainer.innerHTML = `
+        <label for="filtroFechaSelect" style="font-size:12px; font-weight:500; display:block; margin-bottom:4px;">Filtrar periodo</label>
+        <select id="filtroFechaSelect">
+            <option value="hoy">🌅 Hoy</option>
+            <option value="ayer">🌤️ Ayer</option>
+            <option value="semana">🗓️ Esta Semana</option>
+            <option value="mes">📅 Este Mes</option>
+            <option value="personalizado">🧑‍💻 Personalizado</option>
+        </select>
+        <div id="rangoPersonalizado">
+             <input type="date" id="fechaInicio" title="Fecha de inicio">
+             <input type="date" id="fechaFin" title="Fecha de fin">
+        </div>
+    `;
+    legend.appendChild(filtroContainer);
+
+    const filtroFechaSelect = legend.querySelector('#filtroFechaSelect');
+    const rangoPersonalizadoDiv = legend.querySelector('#rangoPersonalizado');
+    const fechaInicioInput = legend.querySelector('#fechaInicio');
+    const fechaFinInput = legend.querySelector('#fechaFin');
+    
+    // Restaurar selección anterior
+    filtroFechaSelect.value = valorFiltroActual;
+    if (valorFiltroActual === 'personalizado') {
+        rangoPersonalizadoDiv.style.display = 'flex';
+    }
+
+    filtroFechaSelect.onchange = () => {
+        rangoPersonalizadoDiv.style.display = (filtroFechaSelect.value === 'personalizado') ? 'flex' : 'none';
+        aplicarFiltroVista();
+    };
+    fechaInicioInput.onchange = aplicarFiltroVista;
+    fechaFinInput.onchange = aplicarFiltroVista;
+    // <-- FIN del nuevo filtro de fecha -->
+
+    if (!vendedoresData || vendedoresData.length === 0) {
+      legend.innerHTML += "<div class='legend-item' style='color:#999;'>Cargando vendedores...</div>";
+      return;
+    }
+
+    const contadores = {};
+    vendedoresData.forEach(r => {
+      const nombreVRaw = valorFila(r, ["NOMBRE VENDEDOR","nombre vendedor","NOMBRE_VENDEDOR","nom_vendedor"]) || "Sin vendedor";
+      const nombreV = normalizarTexto(nombreVRaw);
+
+      if (!contadores[nombreV]) {
+        contadores[nombreV] = { hoy: 0, mes: 0 };
+      }
+
+      const fechaRaw = valorFila(r, ["Fecha y Hora","FECHA","fecha"]) || "";
+      let fecha = null;
+
+      const match = fechaRaw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+      if (match) {
+        const [, dia, mes, anio, hora, min, seg] = match;
+        fecha = new Date(anio, mes - 1, dia, hora, min, seg);
+      } else {
+        fecha = new Date(fechaRaw.trim());
+      }
+
+      if (isNaN(fecha.getTime())) return;
+
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      
+      const fechaVisita = new Date(fecha);
+      fechaVisita.setHours(0,0,0,0);
+      
+      if (fecha.getMonth() === hoy.getMonth() && fecha.getFullYear() === hoy.getFullYear()) {
+        contadores[nombreV].mes++;
+        if (fechaVisita.getTime() === hoy.getTime()) {
+          contadores[nombreV].hoy++;
+        }
+      }
+    });
+
+    const sortedVendors = Object.keys(vendorColorMap).sort();
+    sortedVendors.forEach(nombreV => {
+      let nombreOriginal = nombreV.charAt(0).toUpperCase() + nombreV.slice(1);
+      for (const r of vendedoresData) {
+        const raw = valorFila(r, ["NOMBRE VENDEDOR","nombre vendedor","NOMBRE_VENDEDOR","nom_vendedor"]) || "";
+        if (normalizarTexto(raw) === nombreV) {
+          nombreOriginal = raw;
+          break;
+        }
+      }
+
+      const contador = contadores[nombreV] || { hoy: 0, mes: 0 };
+      
+      if (contador.mes === 0) return; // No mostrar vendedores sin visitas en el mes
+
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      if (vendedorSeleccionado && nombreV !== vendedorSeleccionado) {
+        div.className += ' hidden';
+      }
+      
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        vendedorSeleccionado = (vendedorSeleccionado === nombreV) ? null : nombreV;
+        actualizarLeyenda();
+        aplicarFiltroVista();
+      };
+
+      const box = document.createElement('div');
+      box.className = 'legend-color';
+      box.style.backgroundColor = getColorHex(vendorColorMap[nombreV]);
+      div.appendChild(box);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = nombreOriginal;
+      nameSpan.style.flex = '1';
+      div.appendChild(nameSpan);
+
+      const countersDiv = document.createElement('div');
+      countersDiv.className = 'legend-counters';
+      
+      if (contador.hoy > 0) {
+        const todaySpan = document.createElement('span');
+        todaySpan.className = 'counter-today';
+        todaySpan.textContent = contador.hoy;
+        todaySpan.title = 'Visitas hoy';
+        countersDiv.appendChild(todaySpan);
+      }
+      
+      const monthSpan = document.createElement('span');
+      monthSpan.className = 'counter-month';
+      monthSpan.textContent = contador.mes;
+      monthSpan.title = 'Visitas este mes';
+      countersDiv.appendChild(monthSpan);
+      
+      div.appendChild(countersDiv);
+      legend.appendChild(div);
+    });
+
+    const separator = document.createElement('div');
+    separator.className = 'legend-separator';
+    legend.appendChild(separator);
+
+    const p = document.createElement('div');
+    p.className = 'legend-item';
+    const star = document.createElement('div');
+    star.className = 'legend-star';
+    star.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24">
+        <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9"
+          fill="#FFD700" stroke="#E6B800" stroke-width="0.7"/>
+      </svg>
+    `;
+    p.appendChild(star);
+    const prospectText = document.createElement('span');
+    prospectText.textContent = " Prospectos (DENUE)";
+    p.appendChild(prospectText);
+    legend.appendChild(p);
+  }
+
+  function getColorHex(colorName) {
+    const colors = {
+      'red': '#CB2B3E', 'blue': '#2A81CB', 'green': '#2AAD27', 'orange': '#FFB326',
+      'yellow': '#FFD326', 'gold': '#D4A017', 'grey': '#7B7B7B', 'black': '#3D3D3D'
+    };
+    return colors[colorName] || '#666666';
+  }
+
+  /************************ AUTO-UPDATE MEJORADO ************************/
+  function verificarActualizaciones() {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+    pollingInterval = setInterval(() => {
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(7);
+      let urlConCacheBuster = URL_VENDEDORES_CSV;
+      
+      if (urlConCacheBuster.includes('?')) {
+        urlConCacheBuster += `&check=${timestamp}&rand=${random}`;
+      } else {
+        urlConCacheBuster += `?check=${timestamp}&rand=${random}`;
+      }
+      console.log("🔍 Verificando cambios...", new Date().toLocaleTimeString());
+      Papa.parse(urlConCacheBuster, {
+        download: true, header: true, skipEmptyLines: true,
+        complete: function(results) {
+          if (!results.data || results.data.length === 0) {
+            console.warn("⚠️ No se recibieron datos"); return;
+          }
+          const contenidoCompleto = JSON.stringify(results.data);
+          const nuevoHash = generarHashSimple(contenidoCompleto);
+          if (lastVendorHash === null) {
+            lastVendorHash = nuevoHash;
+            console.log("🏁 Hash inicial:", lastVendorHash);
+          } else if (lastVendorHash !== nuevoHash) {
+            console.log("📊 ¡CAMBIO DETECTADO!", {
+              registros: results.data.length, hora: new Date().toLocaleTimeString()
+            });
+            lastVendorHash = nuevoHash;
+            vendedoresData = results.data;
+            renderVendedores(vendedoresData); // Esto re-renderizará y aplicará filtros
+            
+            const status = document.getElementById('status');
+            status.textContent = "🔄 Datos actualizados automáticamente";
+            mostrarNotificacion("✅ Mapa actualizado con nuevos datos");
+            setTimeout(() => { status.textContent = ""; }, 3000);
+          } else {
+            console.log("✓ Sin cambios");
+          }
+        },
+        error: function(err) {
+          console.warn("⚠️ Error en verificación:", err.message);
+        }
+      });
+    }, 30000); // 30 segundos
+  }
+
+  function generarHashSimple(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return str.length + "_" + Math.abs(hash).toString(36);
+  }
+
+  function mostrarNotificacion(mensaje) {
+    const toast = document.createElement('div');
+    toast.textContent = mensaje;
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.right = '20px';
+    toast.style.background = '#28a745';
+    toast.style.color = 'white';
+    toast.style.padding = '10px 15px';
+    toast.style.borderRadius = '6px';
+    toast.style.zIndex = '2000';
+    toast.style.fontSize = '14px';
+    toast.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && pollingInterval) {
+      console.log("🔄 Pestaña reactivada. Reiniciando polling...");
+      clearInterval(pollingInterval);
+      verificarActualizaciones();
+    }
+  });
+
+  /************************ EVENTOS ************************/
+  document.getElementById('buscarBtn').addEventListener('click', buscarProspectos);
+  document.getElementById('limpiarBtn').addEventListener('click', limpiarProspectos);
+
+  const panel = document.getElementById('panel');
+  const toggle = document.getElementById('panelToggle');
+  const arrow = document.getElementById('arrow');
+  panel.classList.add('collapsed');
+  toggle.addEventListener('click', () => {
+    if (panel.classList.contains('collapsed')) {
+      panel.classList.remove('collapsed');
+      panel.classList.add('expanded');
+      arrow.textContent = "▼";
+    } else {
+      panel.classList.remove('expanded');
+      panel.classList.add('collapsed');
+      arrow.textContent = "▶";
+    }
+  });
+
+  /************************ INICIO ************************/
+  cargarVendedores();
+  cargarDENUE();
+  verificarActualizaciones();
+  </script>
+</body>
+</html>
