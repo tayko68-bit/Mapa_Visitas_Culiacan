@@ -7,8 +7,8 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html,body,#map { height: 100%; margin:0; padding:0; }
     #map { height: 100vh; }
@@ -50,14 +50,14 @@
       max-height: 500px;
     }
 
+    /* --- MODIFICADO --- */
     .panel select, .panel button {
-      width: 14vw;
-      max-width: 280px;
-      min-width: 200px;
-      margin-top:6px;
-      padding:6px;
+      width: 100%; /* <-- CAMBIO: Ocupará el 100% de su padre (.panel) */
+      margin-top: 6px;
+      padding: 6px;
       box-sizing: border-box;
       font-size: 14px;
+      /* Eliminamos los anchos fijos y conflictivos (14vw, min/max-width) */
     }
 
     /* Leyenda mejorada */
@@ -86,7 +86,7 @@
       border-bottom: 1px solid #e0e0e0;
       color: #2c3e50;
     }
-    
+        
     /* <-- NUEVO: Estilos para el nuevo filtro de fecha --> */
     .filtro-fecha-container {
       padding: 8px;
@@ -110,10 +110,10 @@
     }
     /* <-- FIN NUEVOS ESTILOS --> */
 
-    .legend-item {  
-      display: flex;  
-      align-items: center;  
-      margin-bottom: 8px;
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
       padding: 4px 6px;
       border-radius: 4px;
       transition: all 0.2s;
@@ -129,21 +129,21 @@
     }
 
     .legend-color {
-      width: 18px;  
-      height: 18px;  
-      margin-right: 10px;  
-      border-radius: 50%;  
-      border: 2px solid white;
+      width: 18px;
+        height: 18px;
+        margin-right: 10px;
+        border-radius: 50%;
+        border: 2px solid white;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
       flex: 0 0 18px;
     }
 
     .legend-star {
-      width: 22px;  
-      height: 22px;  
-      margin-right: 10px;  
-      display: inline-block;  
-      flex: 0 0 22px;
+      width: 22px;
+        height: 22px;
+        margin-right: 10px;
+        display: inline-block;
+        flex: 0 0 22px;
     }
 
     .legend-counters {
@@ -162,12 +162,10 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-
     .counter-today:hover {
       transform: scale(1.1);
       box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
     }
-
     .counter-month {
       background: #2196F3;
       color: white;
@@ -177,7 +175,6 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-
     .counter-month:hover {
       transform: scale(1.1);
       box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
@@ -193,6 +190,51 @@
     .marker-today {
       filter: drop-shadow(0 0 4px rgba(76, 175, 80, 0.6));
     }
+
+
+    /* --- INICIO DE CÓDIGO RESPONSIVE --- */
+
+    /* Cuando la pantalla sea de 600px o menos... */
+    @media (max-width: 600px) {
+
+      /* 1. Los paneles ocuparán casi todo el ancho */
+      .panel, .legend {
+        width: auto;          /* Dejamos que el ancho sea automático */
+        min-width: unset;     /* Quitamos el ancho mínimo de 240px */
+        
+        /* Los anclamos a 10px de cada lado */
+        left: 10px;
+        right: 10px;
+      }
+
+      /* 2. Reducimos la altura máxima para que no tapen todo el mapa */
+      .legend {
+        max-height: 40vh;   /* 40% de la altura de la pantalla */
+        font-size: 12px;  /* Letra un poco más pequeña */
+      }
+
+      .panel.expanded {
+        max-height: 45vh;   /* 45% de la altura de la pantalla */
+        overflow-y: auto; /* Importante: permite scroll si el contenido no cabe */
+      }
+
+      /* 3. Mejoramos la legibilidad de los elementos */
+      .panel-header, .legend-title {
+        font-size: 14px;
+      }
+
+      .legend-item {
+        padding: 2px 4px; /* Un poco menos de espacio vertical */
+      }
+      
+      .legend-counters {
+         gap: 5px; /* Más juntos los contadores */
+         font-size: 10px;
+      }
+
+    }
+    /* --- FIN DE CÓDIGO RESPONSIVE --- */
+
   </style>
 </head>
 <body>
@@ -244,7 +286,7 @@
     "juan millan": "green",
     "pedro aguirre": "blue"
   };
-    
+      
   /************************ AUTO-UPDATE ************************/
   let lastVendorHash = null;
   let pollingInterval = null;
@@ -252,7 +294,7 @@
 
   window.addEventListener('load', () => {
     console.log("🚀 Aplicación iniciada - Culiacán", new Date().toLocaleTimeString());
-    
+        
     const originalLog = console.log;
     console.log = function(...args) {
       if (args[0] && args[0].includes('CAMBIO DETECTADO')) {
@@ -262,7 +304,7 @@
       }
     };
   });
-    
+      
   /************************ UTILIDADES ************************/
   function normalizarTexto(txt) {
     if (!txt && txt !== 0) return "";
@@ -329,7 +371,7 @@
     todosLosMarcadores = [];
     const vendorSet = new Set();
     const vendorList = [];
-    
+        
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
@@ -340,7 +382,7 @@
     });
 
     vendorList.push(...Array.from(vendorSet).sort());
-
+    
     const paletteNuevos = ["grey", "black", "yellow", "orange"];
     const coloresUsados = new Set(Object.values(FIXED_VENDOR_COLORS));
     vendorColorMap = {};
@@ -368,7 +410,7 @@
     rows.forEach(r => {
       const nombreVRaw = valorFila(r, ["NOMBRE VENDEDOR","nombre vendedor","NOMBRE_VENDEDOR","nom_vendedor"]) || "Sin vendedor";
       const nombreV = normalizarTexto(nombreVRaw);
-      
+            
       const coordStr = valorFila(r, ["GPS Ubicacion","COORDENADAS","coordenadas","Coordenadas"]) || "";
       let lat=null, lon=null;
       if(coordStr.includes(",")){
@@ -383,13 +425,13 @@
       const fechaRaw = valorFila(r, ["Fecha y Hora","FECHA","fecha"]) || "";
       let esDeHoy = false;
       let fecha = null;
-      
+            
       const match = fechaRaw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
       if (match) {
         const [, dia, mes, anio, hora, min, seg] = match;
         // Creamos la fecha con la hora correcta para comparaciones precisas
         fecha = new Date(anio, mes - 1, dia, hora, min, seg);
-        
+                
         // Para 'esDeHoy', comparamos solo la parte de la fecha
         let fechaComparar = new Date(fecha);
         fechaComparar.setHours(0,0,0,0);
@@ -397,11 +439,11 @@
       }
 
       const colorName = vendorColorMap[nombreV];
-      const marker = L.marker([lat, lon], {  
-        icon: crearIconoColor(colorName, esDeHoy),
+      const marker = L.marker([lat, lon], {
+          icon: crearIconoColor(colorName, esDeHoy),
         zIndexOffset: esDeHoy ? 1000 : 0
       });
-      
+            
       const cliente = valorFila(r, ["NOMBRE CLIENTE","NOMBRE_CLIENTE","nombre cliente","nom_estab"]) || "";
       const giro = valorFila(r, ["GIRO","giro"]) || "";
       const motivo = valorFila(r, ["MOTIVO","motivo"]) || "";
@@ -418,12 +460,12 @@
       `;
 
       marker.bindPopup(popupContent);
-      
+            
       // <-- MODIFICADO: Guardar el objeto Date completo para el filtrado -->
       marker.fechaVisita = fecha; 
       marker.esDeHoy = esDeHoy;
       marker.vendedor = nombreV;
-      
+            
       todosLosMarcadores.push(marker);
       // No lo agregamos al mapa aquí, `aplicarFiltroVista` se encargará de ello
     });
@@ -436,7 +478,6 @@
   function aplicarFiltroVista() {
       const filtroSelect = document.getElementById('filtroFechaSelect');
       if (!filtroSelect) return; // Salir si el DOM no está listo
-
       const filtro = filtroSelect.value;
       const hoy = new Date();
       let fechaInicio, fechaFin;
@@ -507,16 +548,15 @@
               }
           }
       });
-      
+            
       const status = document.getElementById('status');
       status.textContent = `Mostrando ${marcadoresVisibles} visitas.`;
-      setTimeout(() => { 
-        if(status.textContent === `Mostrando ${marcadoresVisibles} visitas.`) {
+      setTimeout(() => {
+         if(status.textContent === `Mostrando ${marcadoresVisibles} visitas.`) {
           status.textContent = "";
         }
       }, 3000);
   }
-
 
   function cargarVendedores() {
     const status = document.getElementById('status');
@@ -525,7 +565,7 @@
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(7);
     let urlConCacheBuster = URL_VENDEDORES_CSV;
-    
+        
     if (urlConCacheBuster.includes('?')) {
       urlConCacheBuster += `&t=${timestamp}&r=${random}&nocache=true`;
     } else {
@@ -543,9 +583,9 @@
         setTimeout(() => { status.textContent = ""; }, 3000);
         console.log("✅ Vendedores cargados:", vendedoresData.length, new Date().toLocaleTimeString());
       },
-      error(err) {  
-        console.error("Error cargando vendedores:", err);  
-        status.textContent = "Error cargando vendedores";
+      error(err) {
+          console.error("Error cargando vendedores:", err);
+          status.textContent = "Error cargando vendedores";
       }
     });
   }
@@ -632,7 +672,7 @@
     title.className = 'legend-title';
     title.textContent = '📍 Vendedores';
     legend.appendChild(title);
-    
+        
     // <-- NUEVO: Contenedor para el nuevo filtro de fecha -->
     const filtroContainer = document.createElement('div');
     filtroContainer.className = 'filtro-fecha-container';
@@ -656,7 +696,7 @@
     const rangoPersonalizadoDiv = legend.querySelector('#rangoPersonalizado');
     const fechaInicioInput = legend.querySelector('#fechaInicio');
     const fechaFinInput = legend.querySelector('#fechaFin');
-    
+        
     // Restaurar selección anterior
     filtroFechaSelect.value = valorFiltroActual;
     if (valorFiltroActual === 'personalizado') {
@@ -687,7 +727,7 @@
 
       const fechaRaw = valorFila(r, ["Fecha y Hora","FECHA","fecha"]) || "";
       let fecha = null;
-
+      
       const match = fechaRaw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/);
       if (match) {
         const [, dia, mes, anio, hora, min, seg] = match;
@@ -700,10 +740,10 @@
 
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
-      
+            
       const fechaVisita = new Date(fecha);
       fechaVisita.setHours(0,0,0,0);
-      
+            
       if (fecha.getMonth() === hoy.getMonth() && fecha.getFullYear() === hoy.getFullYear()) {
         contadores[nombreV].mes++;
         if (fechaVisita.getTime() === hoy.getTime()) {
@@ -724,7 +764,7 @@
       }
 
       const contador = contadores[nombreV] || { hoy: 0, mes: 0 };
-      
+            
       if (contador.mes === 0) return; // No mostrar vendedores sin visitas en el mes
 
       const div = document.createElement('div');
@@ -732,7 +772,7 @@
       if (vendedorSeleccionado && nombreV !== vendedorSeleccionado) {
         div.className += ' hidden';
       }
-      
+            
       div.style.cursor = 'pointer';
       div.onclick = () => {
         vendedorSeleccionado = (vendedorSeleccionado === nombreV) ? null : nombreV;
@@ -752,7 +792,7 @@
 
       const countersDiv = document.createElement('div');
       countersDiv.className = 'legend-counters';
-      
+            
       if (contador.hoy > 0) {
         const todaySpan = document.createElement('span');
         todaySpan.className = 'counter-today';
@@ -760,13 +800,13 @@
         todaySpan.title = 'Visitas hoy';
         countersDiv.appendChild(todaySpan);
       }
-      
+            
       const monthSpan = document.createElement('span');
       monthSpan.className = 'counter-month';
       monthSpan.textContent = contador.mes;
       monthSpan.title = 'Visitas este mes';
       countersDiv.appendChild(monthSpan);
-      
+            
       div.appendChild(countersDiv);
       legend.appendChild(div);
     });
@@ -809,7 +849,7 @@
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
       let urlConCacheBuster = URL_VENDEDORES_CSV;
-      
+            
       if (urlConCacheBuster.includes('?')) {
         urlConCacheBuster += `&check=${timestamp}&rand=${random}`;
       } else {
@@ -824,6 +864,7 @@
           }
           const contenidoCompleto = JSON.stringify(results.data);
           const nuevoHash = generarHashSimple(contenidoCompleto);
+
           if (lastVendorHash === null) {
             lastVendorHash = nuevoHash;
             console.log("🏁 Hash inicial:", lastVendorHash);
@@ -834,7 +875,7 @@
             lastVendorHash = nuevoHash;
             vendedoresData = results.data;
             renderVendedores(vendedoresData); // Esto re-renderizará y aplicará filtros
-            
+                        
             const status = document.getElementById('status');
             status.textContent = "🔄 Datos actualizados automáticamente";
             mostrarNotificacion("✅ Mapa actualizado con nuevos datos");
